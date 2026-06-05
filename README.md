@@ -34,16 +34,14 @@ the sub-command with the current uid and gid.
 - `--stdin-on-term MESSAGE` : some applications prefer to be gracefully stopped with a command on
    stdin rather than handling SIGTERM, such as Minecraft servers. 
    The `MESSAGE` and a newline will be written to the sub-command's stdin when a `TERM` signal is received.
-- `--stdin-on-term-announce MESSAGE` : if set along with `--stdin-on-term`, this `MESSAGE` (plus a newline)
-   is written to the sub-command's stdin first when a `TERM` signal is received, then
-   `--stdin-on-term-announce-delay` is awaited before the `--stdin-on-term` message is sent. This gives
-   users a heads-up before the application is stopped. Any `%delay%` token in the message is replaced with
-   the whole-second value of the delay (e.g. for a Minecraft server, `say Server stopping in %delay% seconds`).
-   A second `TERM` signal received during the wait skips the remaining delay.
-- `--stdin-on-term-announce-delay DURATION` : how long to wait between the announce message and the
-   `--stdin-on-term` message, as a [Go duration](https://pkg.go.dev/time#ParseDuration) (e.g. `30s`). Keep
-   this shorter than the container's stop grace period (e.g. `docker stop -t`) so the `--stdin-on-term`
-   message is sent before the container is force-killed.
+- `--stdin-on-term-announce MESSAGE` : optional message written to the sub-command's stdin when `TERM`
+   is received, *before* `--stdin-on-term-delay` and the `--stdin-on-term` message — e.g. a heads-up to
+   connected users. A `%delay%` token is replaced with the whole-second value of `--stdin-on-term-delay`
+   (e.g. `say Server stopping in %delay% seconds`).
+- `--stdin-on-term-delay DURATION` : optional wait ([Go duration](https://pkg.go.dev/time#ParseDuration),
+   e.g. `30s`) after `TERM`, before the `--stdin-on-term` message is written — independent of
+   `--stdin-on-term-announce`. A second `TERM` skips the remaining wait. Keep it shorter than the
+   container's stop grace (`docker stop -t`), or the stop message won't be sent before force-kill.
 - `--debug` : enables debug logging
 - `--version` : show version and exit
 

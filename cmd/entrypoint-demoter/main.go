@@ -24,9 +24,9 @@ var config struct {
 	Version     bool   `usage:"Show version info and exit"`
 	StdinOnTerm string `usage:"If set, the given content will be written to the sub-command's stdin when TERM signal is received"`
 
-	StdinOnTermAnnounce string `usage:"If set along with stdin-on-term, this content is written to the sub-command's stdin first when TERM is received, then stdin-on-term-announce-delay is awaited before the stdin-on-term content is written. A %delay% token is replaced with the whole-second value of the delay."`
+	StdinOnTermAnnounce string `usage:"If set, written to the sub-command's stdin when TERM is received, before any stdin-on-term-delay and the stdin-on-term content. A %delay% token is replaced with the whole-second value of stdin-on-term-delay."`
 
-	StdinOnTermAnnounceDelay time.Duration `usage:"How long to wait after writing the stdin-on-term-announce content before writing the stdin-on-term content. Keep shorter than the container's stop grace period."`
+	StdinOnTermDelay time.Duration `usage:"If set, waited after TERM (and after writing any stdin-on-term-announce) before the stdin-on-term content is written. Keep shorter than the container's stop grace period."`
 }
 
 func main() {
@@ -56,7 +56,7 @@ func main() {
 		log.WithError(err).Fatal("Failed to resolve IDs")
 	}
 
-	err = entrypoint_demoter.RunCommand(uid, gid, config.StdinOnTerm, config.StdinOnTermAnnounce, config.StdinOnTermAnnounceDelay, args)
+	err = entrypoint_demoter.RunCommand(uid, gid, config.StdinOnTerm, config.StdinOnTermAnnounce, config.StdinOnTermDelay, args)
 	if err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			os.Exit(exitErr.ExitCode())

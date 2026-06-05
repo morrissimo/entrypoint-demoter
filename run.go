@@ -14,11 +14,11 @@ import (
 	"time"
 )
 
-func RunCommand(uid uint32, gid uint32, stdinOnTerm string, stdinOnTermAnnounce string, stdinOnTermAnnounceDelay time.Duration, commandAndArgs []string) error {
-	return RunCommandWithListeners(uid, gid, stdinOnTerm, stdinOnTermAnnounce, stdinOnTermAnnounceDelay, commandAndArgs)
+func RunCommand(uid uint32, gid uint32, stdinOnTerm string, stdinOnTermAnnounce string, stdinOnTermDelay time.Duration, commandAndArgs []string) error {
+	return RunCommandWithListeners(uid, gid, stdinOnTerm, stdinOnTermAnnounce, stdinOnTermDelay, commandAndArgs)
 }
 
-func RunCommandWithListeners(uid uint32, gid uint32, stdinOnTerm string, stdinOnTermAnnounce string, stdinOnTermAnnounceDelay time.Duration, commandAndArgs []string, listeners ...StdInOutListener) error {
+func RunCommandWithListeners(uid uint32, gid uint32, stdinOnTerm string, stdinOnTermAnnounce string, stdinOnTermDelay time.Duration, commandAndArgs []string, listeners ...StdInOutListener) error {
 	command := exec.Command(commandAndArgs[0], commandAndArgs[1:]...)
 	command.Stderr = os.Stderr
 
@@ -53,7 +53,7 @@ func RunCommandWithListeners(uid uint32, gid uint32, stdinOnTerm string, stdinOn
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	setupSignalForwarding(ctx, command, stdinOnTerm, stdinOnTermAnnounce, stdinOnTermAnnounceDelay, stdinPipe)
+	setupSignalForwarding(ctx, command, stdinOnTerm, stdinOnTermAnnounce, stdinOnTermDelay, stdinPipe)
 
 	err = command.Wait()
 	if err != nil {
@@ -63,7 +63,7 @@ func RunCommandWithListeners(uid uint32, gid uint32, stdinOnTerm string, stdinOn
 	return nil
 }
 
-func setupSignalForwarding(ctx context.Context, cmd *exec.Cmd, stdinOnTerm string, stdinOnTermAnnounce string, stdinOnTermAnnounceDelay time.Duration, stdinPipe io.Writer) {
+func setupSignalForwarding(ctx context.Context, cmd *exec.Cmd, stdinOnTerm string, stdinOnTermAnnounce string, stdinOnTermDelay time.Duration, stdinPipe io.Writer) {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGTERM)
 
@@ -76,24 +76,24 @@ func setupSignalForwarding(ctx context.Context, cmd *exec.Cmd, stdinOnTerm strin
 				if stdinOnTerm != "" && sig == syscall.SIGTERM {
 					if stdinOnTermAnnounce != "" {
 						announce := strings.ReplaceAll(stdinOnTermAnnounce, "%delay%",
-							strconv.FormatInt(int64(stdinOnTermAnnounceDelay/time.Second), 10))
+							strconv.FormatInt(int64(stdinOnTermDelay/time.Second), 10))
 						log.WithField("message", announce).Debug("Sending announce on stdin due to SIGTERM")
 						stdinPipe.Write([]byte(announce + "\n"))
+					}
 
-						if stdinOnTermAnnounceDelay > 0 {
-							// Wait before sending the stop message, but let a second TERM
-							// (e.g. an impatient `docker stop`) short-circuit the wait so we
-							// never block past the container's stop grace period.
-							timer := time.NewTimer(stdinOnTermAnnounceDelay)
-							select {
-							case <-timer.C:
-							case <-signals:
-								timer.Stop()
-								log.Debug("Second TERM received; skipping remaining announce delay")
-							case <-ctx.Done():
-								timer.Stop()
-								return
-							}
+					if stdinOnTermDelay > 0 {
+						// Wait before sending the stop message, but let a second TERM
+						// (e.g. an impatient `docker stop`) short-circuit the wait so we
+						// never block past the container's stop grace period.
+						timer := time.NewTimer(stdinOnTermDelay)
+						select {
+						case <-timer.C:
+						case <-signals:
+							timer.Stop()
+							log.Debug("Second TERM received; skipping remaining delay")
+						case <-ctx.Done():
+							timer.Stop()
+							return
 						}
 					}
 
